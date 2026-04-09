@@ -42,6 +42,28 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undef
 const supabase =
   supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
+const trackingEnabled = Boolean(supabase);
+console.info("[tracking] supabase enabled:", trackingEnabled, {
+  url_present: Boolean(supabaseUrl),
+  key_present: Boolean(supabaseAnonKey),
+});
+
+declare global {
+  interface Window {
+    __TRACKING_DEBUG__?: {
+      enabled: boolean;
+      urlPresent: boolean;
+      keyPresent: boolean;
+    };
+  }
+}
+
+window.__TRACKING_DEBUG__ = {
+  enabled: trackingEnabled,
+  urlPresent: Boolean(supabaseUrl),
+  keyPresent: Boolean(supabaseAnonKey),
+};
+
 const sessionId = (() => {
   const key = "story_session_id";
   const existing = localStorage.getItem(key);
@@ -55,7 +77,10 @@ const trackResponse = async (
   eventName: string,
   payload: ResponsePayload = {},
 ) => {
-  if (!supabase) return;
+  if (!supabase) {
+    console.warn("[tracking] skipped insert; supabase not configured", { eventName });
+    return;
+  }
   const { error } = await supabase.from("experience_responses").insert({
     session_id: sessionId,
     event_name: eventName,
